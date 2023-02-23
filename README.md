@@ -6,6 +6,13 @@ https://github.com/jkriege2/TinyTIFF
 
 A global-buffer-overflow issue was discovered in TinyTIFF in tinytiffreader.c file. The flow allows an attacker to cause a denial of service (abort) via a crafted file.
 
+**OS information**
+
+```
+ubuntu@ubuntu:~/Documents/TinyTIFF/src$ uname -a
+Linux ubuntu 5.15.0-58-generic #64~20.04.1-Ubuntu SMP Fri Jan 6 16:42:31 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+```
+
 **Summary**
 
 AddressSanitizer: global-buffer-overflow (/home/ubuntu/Desktop/TinyTIFF/src/asan_tinytiffreader+0x4969c6) in __asan_memcpy
@@ -132,3 +139,72 @@ Shadow byte legend (one shadow byte represents 8 application bytes):
   Shadow gap:              cc
 ==3817392==ABORTING
 ```
+**use gdb debug this crah**
+
+```bash
+ubuntu@ubuntu:~/Documents/TinyTIFF/src$ gdb --args ./tinytiffreader id8
+GNU gdb (Ubuntu 9.2-0ubuntu1~20.04.1) 9.2
+Copyright (C) 2020 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from ./tinytiffreader...
+(No debugging symbols found in ./tinytiffreader)
+gdb-peda$ r id8
+Starting program: /home/ubuntu/Documents/TinyTIFF/src/tinytiffreader id8
+
+Program received signal SIGSEGV, Segmentation fault.
+[----------------------------------registers-----------------------------------]
+RAX: 0x7ffdfdd09010 --> 0x0 
+RBX: 0x55555555b2a0 --> 0x55555555b720 --> 0xfbad2488 
+RCX: 0x0 
+RDX: 0x1fa0b8878 
+RSI: 0x0 
+RDI: 0x7ffdfdd09010 --> 0x0 
+RBP: 0x7fffffffdcd0 --> 0x7fffffffdda0 --> 0x7fffffffdef0 --> 0x7fffffffdf30 --> 0x0 
+RSP: 0x7fffffffdca8 --> 0x555555555663 (<TinyTIFFReader_memcpy_s+51>:	mov    eax,0x0)
+RIP: 0x7ffff7f4d8f5 (<__memmove_avx_unaligned_erms+533>:	vmovdqu ymm4,YMMWORD PTR [rsi])
+R8 : 0x7ffdfdd09010 --> 0x0 
+R9 : 0x0 
+R10: 0x22 ('"')
+R11: 0x246 
+R12: 0x555555555240 (<_start>:	endbr64)
+R13: 0x7fffffffe020 --> 0x2 
+R14: 0x0 
+R15: 0x0
+EFLAGS: 0x10202 (carry parity adjust zero sign trap INTERRUPT direction overflow)
+[-------------------------------------code-------------------------------------]
+   0x7ffff7f4d8ec <__memmove_avx_unaligned_erms+524>:	vmovdqu YMMWORD PTR [r11],ymm4
+   0x7ffff7f4d8f1 <__memmove_avx_unaligned_erms+529>:	vzeroupper 
+   0x7ffff7f4d8f4 <__memmove_avx_unaligned_erms+532>:	ret    
+=> 0x7ffff7f4d8f5 <__memmove_avx_unaligned_erms+533>:	vmovdqu ymm4,YMMWORD PTR [rsi]
+   0x7ffff7f4d8f9 <__memmove_avx_unaligned_erms+537>:	vmovdqu ymm5,YMMWORD PTR [rsi+0x20]
+   0x7ffff7f4d8fe <__memmove_avx_unaligned_erms+542>:	vmovdqu ymm6,YMMWORD PTR [rsi+0x40]
+   0x7ffff7f4d903 <__memmove_avx_unaligned_erms+547>:	vmovdqu ymm7,YMMWORD PTR [rsi+0x60]
+   0x7ffff7f4d908 <__memmove_avx_unaligned_erms+552>:	vmovdqu ymm8,YMMWORD PTR [rsi+rdx*1-0x20]
+[------------------------------------stack-------------------------------------]
+0000| 0x7fffffffdca8 --> 0x555555555663 (<TinyTIFFReader_memcpy_s+51>:	mov    eax,0x0)
+0008| 0x7fffffffdcb0 --> 0x1fa0b8878 
+0016| 0x7fffffffdcb8 --> 0x0 
+0024| 0x7fffffffdcc0 --> 0x1fa0b8878 
+0032| 0x7fffffffdcc8 --> 0x7ffdfdd09010 --> 0x0 
+0040| 0x7fffffffdcd0 --> 0x7fffffffdda0 --> 0x7fffffffdef0 --> 0x7fffffffdf30 --> 0x0 
+0048| 0x7fffffffdcd8 --> 0x5555555563fb (<TinyTIFFReader_readNextFrame+886>:	jmp    0x555555556683 <TinyTIFFReader_readNextFrame+1534>)
+0056| 0x7fffffffdce0 --> 0x0 
+[------------------------------------------------------------------------------]
+Legend: code, data, rodata, value
+Stopped reason: SIGSEGV
+__memmove_avx_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:436
+436	../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S: No such file or directory.
+```
+you can see "../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S: No such file or directory.", I think this problem is caused by abnormal references to Pointers, See this [link](https://stackoverflow.com/questions/69875165/c-segmentation-failed-read-in-csv-file-memmove-vec-unaligned-erms-s-no-such).This one bug I tested on multiple systems crashed.
