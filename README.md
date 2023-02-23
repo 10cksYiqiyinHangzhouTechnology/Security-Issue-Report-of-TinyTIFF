@@ -73,7 +73,7 @@ then,complie the tinytiffreader.c
 gcc -o tinytiffreader tinytiffreader.c
 ```
 
-**test with poc**
+test with poc
 
 ```bash
 ./tinytiffreader id8
