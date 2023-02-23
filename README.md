@@ -2,8 +2,6 @@
 
 https://github.com/jkriege2/TinyTIFF
 
-
-
 **Security Issue Report**
 
 A global-buffer-overflow issue was discovered in TinyTIFF in tinytiffreader.c file. The flow allows an attacker to cause a denial of service (abort) via a crafted file.
@@ -23,9 +21,64 @@ AddressSanitizer: global-buffer-overflow (/home/ubuntu/Desktop/TinyTIFF/src/asan
     #5 0x41c3bd in _start (/home/ubuntu/Desktop/TinyTIFF/src/asan_tinytiffreader+0x41c3bd)
 ```
 
-[Poc file](https://github.com/10cksYiqiyinHangzhouTechnology/Security-Issue-Report-of-TinyTIFF/blob/main/id8)
+[Poc file: id8](https://github.com/10cksYiqiyinHangzhouTechnology/Security-Issue-Report-of-TinyTIFF/blob/main/id8)
 
 [asan_tinytiffreader](https://github.com/10cksYiqiyinHangzhouTechnology/Security-Issue-Report-of-TinyTIFF/blob/main/asan_tinytiffreader)
+
+**compile the test case in the source**
+
+```bash
+cd TinyTIFF/
+cmake .
+make -j4
+cd src/
+```
+modified the tinytiffreader.c file, add harness
+
+```c
+int main(int argc, char *argv[]){
+       TinyTIFFReaderFile* tiffr=NULL;
+   tiffr=TinyTIFFReader_open(argv[1]); 
+   if (!tiffr) { 
+	   printf("ERROR reading (not existent, not accessible or no TIFF file)\n");
+   } else { 
+        const uint32_t width=TinyTIFFReader_getWidth(tiffr); 
+        const uint32_t height=TinyTIFFReader_getHeight(tiffr);
+        const uint16_t bitspersample=TinyTIFFReader_getBitsPerSample(tiffr, 0);		
+        uint8_t* image=(uint8_t*)calloc(width*height, bitspersample/8);  
+        TinyTIFFReader_getSampleData(tiffr, image, 0); 
+
+	printf("%ld\n",width);
+        printf("%ld\n",height);
+        printf("%u\n",bitspersample);
+
+							///////////////////////////////////////////////////////////////////
+							// HERE WE CAN DO SOMETHING WITH THE SAMPLE FROM THE IMAGE 
+							// IN image (ROW-MAJOR!)
+							// Note: That you may have to typecast the array image to the
+							// datatype used in the TIFF-file. You can get the size of each
+							// sample in bits by calling TinyTIFFReader_getBitsPerSample() and
+							// the datatype by calling TinyTIFFReader_getSampleFormat().
+							///////////////////////////////////////////////////////////////////
+                
+        free(image); 
+    } 
+    TinyTIFFReader_close(tiffr); 
+
+}
+```
+then,complie the tinytiffreader.c
+
+```bash
+gcc -o tinytiffreader tinytiffreader.c
+```
+
+**test with poc**
+
+```bash
+./tinytiffreader id8
+```
+this program will trigger  global-buffer-overflow crash. The asan complie program is asan_tinytiffreader.
 
 **ASAN Report:**
 
